@@ -1,6 +1,8 @@
 homepage: "https://core-grc.com"
 documentation: "https://core-grc.com/docs/google-tag-manager"
 versions:
+  - sha: 93cda3801b6049c76d480d3a5e662ce59b61238c
+    changeNotes: Adds a Cloudflare section that warns in Preview when Rocket Loader is delaying Tag Manager.
   - sha: 98ac57a3c007ed091536012e0dd3ff09d5b6dae3
     changeNotes: Sends each consent update once. Fields grouped into Website, First-visit baseline and Consent records.
   - sha: 33d84fb3397aaf1289b89138fddaf97d505c74ad
