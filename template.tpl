@@ -270,8 +270,8 @@ const SETTINGS_KEY = 'coregrc-gcm-settings';
 // delayed, and sets the second when it has run them all.
 const ROCKET_LOADER_KEYS = ['__rocketLoaderLoadProgressSimulator', '__cfRLUnblockHandlers'];
 const SETTINGS_VERSION = 1;
-// The script's default reconsent period. It re-checks the website's own period
-// when it loads and resets Consent Mode if the saved choice has expired.
+// The script's default reconsent period, used when the website's saved
+// settings don't name their own (settings saved by an older script).
 const MAX_COOKIE_AGE_MS = 365 * 86400000;
 
 let websiteId = '';
@@ -361,7 +361,8 @@ function consentState(source) {
 /**
  * The settings the Core GRC script saved for this website:
  * { v, websiteId, enabled, waitForUpdate, adsDataRedaction, urlPassthrough,
- *   commands: [{ region, consent, sources }] }. null when missing or invalid.
+ *   reconsentDays, reconsentAfter, commands: [{ region, consent, sources }] }.
+ * null when missing or invalid.
  */
 function readSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
@@ -393,11 +394,15 @@ function readSettings() {
   }
   if (!commands.length) return null;
   const wait = makeNumber(saved.waitForUpdate);
+  const reconsentDays = makeNumber(saved.reconsentDays);
+  const reconsentAfter = makeNumber(saved.reconsentAfter);
   return {
     enabled: true,
     waitForUpdate: wait >= 0 && wait <= 10000 ? wait : BASELINE_WAIT_MS,
     adsDataRedaction: saved.adsDataRedaction === true,
     urlPassthrough: saved.urlPassthrough === true,
+    maxChoiceAgeMs: reconsentDays > 0 ? reconsentDays * 86400000 : MAX_COOKIE_AGE_MS,
+    reconsentAfter: reconsentAfter > 0 ? reconsentAfter : 0,
     commands: commands
   };
 }
@@ -487,6 +492,9 @@ function sourcesFor(geo) {
  * (v=1&s=<status>&g=COR1:1,COR3:0,...&geo=<region>&ts=<ms>).
  */
 function applySavedChoice() {
+  // Only with the website's own expiry rules and mapping: without them the tag
+  // could grant consent the website would deny, before the script corrects it.
+  if (!settings || !settings.enabled) return;
   const values = getCookieValues(CONSENT_COOKIE);
   if (!values || !values.length || !values[0]) return;
   const fields = {};
@@ -498,13 +506,16 @@ function applySavedChoice() {
     if (value !== undefined) fields[parts[i].substring(0, at)] = value;
   }
   const ts = makeNumber(fields.ts);
-  if (!(ts > 0) || getTimestampMillis() - ts > MAX_COOKIE_AGE_MS) return;
+  if (!(ts > 0) || getTimestampMillis() - ts > settings.maxChoiceAgeMs) return;
+  if (ts < settings.reconsentAfter) return;
   const categories = {};
   const groups = (fields.g || '').split(',');
   for (let i = 0; i < groups.length; i++) {
     const pair = groups[i].split(':');
     if (pair[0]) categories[pair[0]] = pair[1] === '1' ? GRANTED : DENIED;
   }
+  // A cookie without category choices is damaged: keep the defaults.
+  if (!Object.keys(categories).length) return;
   if (applyConsent({ consentStatus: fields.s, categories: categories }, sourcesFor(fields.geo))) {
     appliedFromCookie = true;
     log(LOGTAG, 'Saved choice applied from cookie');
