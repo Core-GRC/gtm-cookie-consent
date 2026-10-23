@@ -1,5 +1,5 @@
 homepage: "https://core-grc.com"
 documentation: "https://core-grc.com/docs/google-tag-manager"
 versions:
-  - sha: a63b4eb3545d3b3c15df64806a2acaef1867c96b
+  - sha: 33d84fb3397aaf1289b89138fddaf97d505c74ad
     changeNotes: Initial release.
