@@ -23,7 +23,7 @@ ___INFO___
     "displayName": "Core GRC",
     "thumbnail": "data:image/png;base64,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"
   },
-  "description": "Shows your Core GRC cookie consent banner and sets Google Consent Mode: default consent before the visitor chooses, then an update with their choice. Fire it on Consent Initialization - All Pages. Setup guide: https://core-grc.com/docs/google-tag-manager",
+  "description": "Core GRC cookie banner with Google Consent Mode, using your settings from Core GRC. Fire on Consent Initialization - All Pages. Guide: https://core-grc.com/docs/google-tag-manager",
   "containerContexts": [
     "WEB"
   ]
@@ -34,98 +34,114 @@ ___TEMPLATE_PARAMETERS___
 
 [
   {
-    "type": "LABEL",
-    "name": "aboutSettings",
-    "displayName": "Default consent and consent updates come from your website's Google Consent Mode settings in Core GRC (Geographic targeting: default and category for each storage type, per region, plus wait for update, ads data redaction and URL passthrough). Change them in Core GRC and publish: Tag Manager picks them up automatically, with no changes here."
-  },
-  {
-    "type": "TEXT",
-    "name": "websiteId",
-    "displayName": "Website ID",
-    "simpleValueType": true,
-    "alwaysInSummary": true,
-    "help": "From Core GRC: Cookie Consent → Websites → your website → Install Script → Google Tag Manager.",
-    "valueValidators": [
+    "type": "GROUP",
+    "name": "website",
+    "displayName": "Website",
+    "groupStyle": "NO_ZIPPY",
+    "subParams": [
       {
-        "type": "NON_EMPTY"
+        "type": "LABEL",
+        "name": "aboutSettings",
+        "displayName": "Consent defaults and updates come from your Google Consent Mode settings in Core GRC. Change them there and publish."
+      },
+      {
+        "type": "TEXT",
+        "name": "websiteId",
+        "displayName": "Website ID",
+        "simpleValueType": true,
+        "alwaysInSummary": true,
+        "help": "In Core GRC: Cookie Consent → Websites → your website → Install Script → Google Tag Manager.",
+        "valueValidators": [
+          {
+            "type": "NON_EMPTY"
+          }
+        ]
+      },
+      {
+        "type": "TEXT",
+        "name": "apiKey",
+        "displayName": "Site API key",
+        "simpleValueType": true,
+        "help": "Shown next to the Website ID. Lets the banner save consent records."
       }
     ]
   },
   {
-    "type": "TEXT",
-    "name": "apiKey",
-    "displayName": "Site API key",
-    "simpleValueType": true,
-    "help": "Lets the banner save consent records, and tells the tag which Core GRC environment your website is in. Shown next to the Website ID in Core GRC."
-  },
-  {
     "type": "GROUP",
     "name": "baseline",
-    "displayName": "Baseline before Core GRC settings load",
-    "groupStyle": "ZIPPY_OPEN",
+    "displayName": "First-visit baseline",
+    "groupStyle": "ZIPPY_CLOSED",
     "subParams": [
       {
         "type": "LABEL",
         "name": "aboutBaseline",
-        "displayName": "Used only until the Core GRC script has saved your settings in the visitor's browser: on their first page, on the first page of each subdomain, or when the browser blocks storage. The script then applies your region's defaults from Core GRC as soon as it loads. Not used when the Core GRC script is in your website's <head>. Ticked means granted."
+        "displayName": "Used until your Core GRC settings are saved in the visitor's browser, usually just their first page. Ticked = granted."
       },
       {
         "type": "CHECKBOX",
         "name": "baselineAdStorage",
-        "checkboxText": "ad_storage granted",
+        "checkboxText": "ad_storage",
         "simpleValueType": true,
         "defaultValue": false
       },
       {
         "type": "CHECKBOX",
         "name": "baselineAdUserData",
-        "checkboxText": "ad_user_data granted",
+        "checkboxText": "ad_user_data",
         "simpleValueType": true,
         "defaultValue": false
       },
       {
         "type": "CHECKBOX",
         "name": "baselineAdPersonalization",
-        "checkboxText": "ad_personalization granted",
+        "checkboxText": "ad_personalization",
         "simpleValueType": true,
         "defaultValue": false
       },
       {
         "type": "CHECKBOX",
         "name": "baselineAnalyticsStorage",
-        "checkboxText": "analytics_storage granted",
+        "checkboxText": "analytics_storage",
         "simpleValueType": true,
         "defaultValue": false
       },
       {
         "type": "CHECKBOX",
         "name": "baselineFunctionalityStorage",
-        "checkboxText": "functionality_storage granted",
+        "checkboxText": "functionality_storage",
         "simpleValueType": true,
         "defaultValue": false
       },
       {
         "type": "CHECKBOX",
         "name": "baselinePersonalizationStorage",
-        "checkboxText": "personalization_storage granted",
+        "checkboxText": "personalization_storage",
         "simpleValueType": true,
         "defaultValue": false
       },
       {
         "type": "CHECKBOX",
         "name": "baselineSecurityStorage",
-        "checkboxText": "security_storage granted",
+        "checkboxText": "security_storage",
         "simpleValueType": true,
         "defaultValue": true
       }
     ]
   },
   {
-    "type": "TEXT",
-    "name": "customUserId",
-    "displayName": "Custom user ID (optional)",
-    "simpleValueType": true,
-    "help": "A variable holding your logged-in user's ID, to link consent records to users. Only sent to Core GRC."
+    "type": "GROUP",
+    "name": "records",
+    "displayName": "Consent records",
+    "groupStyle": "ZIPPY_CLOSED",
+    "subParams": [
+      {
+        "type": "TEXT",
+        "name": "customUserId",
+        "displayName": "User ID (optional)",
+        "simpleValueType": true,
+        "help": "A variable with your logged-in user's ID, to link consent records to users. Only sent to Core GRC."
+      }
+    ]
   }
 ]
 
@@ -246,6 +262,8 @@ let settings = null;
 let usedBaseline = false;
 // True once this tag applied a saved choice that the script hasn't confirmed yet.
 let appliedFromCookie = false;
+// What this tag last sent for each type, so a repeated report sends nothing.
+const applied = {};
 
 main();
 
@@ -486,9 +504,16 @@ function applyConsent(payload, sources) {
 
   let update = consentState(payload.gcm);
   if (!Object.keys(update).length) update = mapCategories(payload.categories, sources);
-  if (!Object.keys(update).length) return false;
-  log(LOGTAG, 'Consent update', status, update);
-  updateConsentState(update);
+  const types = Object.keys(update);
+  if (!types.length) return false;
+  const changed = {};
+  for (let i = 0; i < types.length; i++) {
+    if (applied[types[i]] !== update[types[i]]) changed[types[i]] = update[types[i]];
+  }
+  if (!Object.keys(changed).length) return true;
+  for (let i = 0; i < types.length; i++) applied[types[i]] = update[types[i]];
+  log(LOGTAG, 'Consent update', status, changed);
+  updateConsentState(changed);
   return true;
 }
 

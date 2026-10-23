@@ -16,7 +16,7 @@ Setup guide: https://core-grc.com/docs/google-tag-manager
 ## What the tag does
 
 - Sets Google Consent Mode defaults for all seven consent types from your Core GRC settings, per region.
-- Until the Core GRC script has saved those settings in the visitor's browser (usually their first page), uses the tag's baseline: one checkbox per type, preset to everything denied except `security_storage`, all of them yours to change.
+- Until the Core GRC script has saved those settings in the visitor's browser (usually their first page), uses the tag's first-visit baseline: one checkbox per type, preset to everything denied except `security_storage`, all of them yours to change.
 - Updates Consent Mode straight away with a returning visitor's saved choice.
 - Loads the Core GRC banner, unless the Core GRC script is already in your website code.
 - Updates Consent Mode each time the visitor makes or changes a choice.
