@@ -1,6 +1,8 @@
 homepage: "https://core-grc.com"
 documentation: "https://core-grc.com/docs/google-tag-manager"
 versions:
+  - sha: 852face1926d6d15ea1d755fb1d3176cf58ea5af
+    changeNotes: Uses the website's reconsent period and reconsent date for saved choices, and waits for the website's settings before applying one.
   - sha: 93cda3801b6049c76d480d3a5e662ce59b61238c
     changeNotes: Adds a Cloudflare section that warns in Preview when Rocket Loader is delaying Tag Manager.
   - sha: 98ac57a3c007ed091536012e0dd3ff09d5b6dae3
