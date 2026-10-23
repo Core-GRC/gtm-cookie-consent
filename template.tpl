@@ -34,6 +34,11 @@ ___TEMPLATE_PARAMETERS___
 
 [
   {
+    "type": "LABEL",
+    "name": "aboutSettings",
+    "displayName": "Default consent and consent updates come from your website's Google Consent Mode settings in Core GRC (Geographic targeting: default and category for each storage type, per region, plus wait for update, ads data redaction and URL passthrough). Change them in Core GRC and publish: Tag Manager picks them up automatically, with no changes here."
+  },
+  {
     "type": "TEXT",
     "name": "websiteId",
     "displayName": "Website ID",
@@ -54,48 +59,66 @@ ___TEMPLATE_PARAMETERS___
     "help": "Lets the banner save consent records, and tells the tag which Core GRC environment your website is in. Shown next to the Website ID in Core GRC."
   },
   {
-    "type": "SELECT",
-    "name": "defaultMode",
-    "displayName": "Default consent before the visitor chooses",
-    "macrosInSelect": false,
-    "selectItems": [
+    "type": "GROUP",
+    "name": "baseline",
+    "displayName": "Baseline before Core GRC settings load",
+    "groupStyle": "ZIPPY_OPEN",
+    "subParams": [
       {
-        "value": "denied",
-        "displayValue": "Denied everywhere (strictest)"
+        "type": "LABEL",
+        "name": "aboutBaseline",
+        "displayName": "Used only until the Core GRC script has saved your settings in the visitor's browser: on their first page, on the first page of each subdomain, or when the browser blocks storage. The script then applies your region's defaults from Core GRC as soon as it loads. Not used when the Core GRC script is in your website's <head>. Ticked means granted."
       },
       {
-        "value": "strictRegions",
-        "displayValue": "Denied in the EU/EEA, UK and Switzerland; granted elsewhere"
-      }
-    ],
-    "simpleValueType": true,
-    "defaultValue": "denied",
-    "help": "Ignored when the Core GRC script is in your website code: it sets defaults from your geographic rules."
-  },
-  {
-    "type": "TEXT",
-    "name": "waitForUpdate",
-    "displayName": "Wait for update",
-    "simpleValueType": true,
-    "valueUnit": "milliseconds",
-    "defaultValue": 500,
-    "valueValidators": [
+        "type": "CHECKBOX",
+        "name": "baselineAdStorage",
+        "checkboxText": "ad_storage granted",
+        "simpleValueType": true,
+        "defaultValue": false
+      },
       {
-        "type": "NON_NEGATIVE_NUMBER"
+        "type": "CHECKBOX",
+        "name": "baselineAdUserData",
+        "checkboxText": "ad_user_data granted",
+        "simpleValueType": true,
+        "defaultValue": false
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "baselineAdPersonalization",
+        "checkboxText": "ad_personalization granted",
+        "simpleValueType": true,
+        "defaultValue": false
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "baselineAnalyticsStorage",
+        "checkboxText": "analytics_storage granted",
+        "simpleValueType": true,
+        "defaultValue": false
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "baselineFunctionalityStorage",
+        "checkboxText": "functionality_storage granted",
+        "simpleValueType": true,
+        "defaultValue": false
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "baselinePersonalizationStorage",
+        "checkboxText": "personalization_storage granted",
+        "simpleValueType": true,
+        "defaultValue": false
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "baselineSecurityStorage",
+        "checkboxText": "security_storage granted",
+        "simpleValueType": true,
+        "defaultValue": true
       }
     ]
-  },
-  {
-    "type": "CHECKBOX",
-    "name": "adsDataRedaction",
-    "checkboxText": "Redact ads data when ad storage is denied",
-    "simpleValueType": true
-  },
-  {
-    "type": "CHECKBOX",
-    "name": "urlPassthrough",
-    "checkboxText": "Pass ad click information through URLs",
-    "simpleValueType": true
   },
   {
     "type": "TEXT",
@@ -117,11 +140,19 @@ ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
  *
  * Trigger: Consent Initialization – All Pages (the only trigger it needs).
  *
- * - Sets Google Consent Mode defaults, unless the Core GRC script in <head>
- *   already set them from the website's published geographic rules.
+ * - Sets Google Consent Mode defaults from the website's Google Consent Mode
+ *   settings in Core GRC (per-region defaults, wait for update, ads data
+ *   redaction, URL passthrough). The Core GRC script saves them in local
+ *   storage on every page, so dashboard changes apply from the next page view
+ *   after publishing. Until a page has saved them (a visitor's first page),
+ *   the tag uses the baseline chosen in its fields, and the script applies the
+ *   region's defaults as soon as it loads.
+ * - Leaves defaults alone when the Core GRC script in <head> already set them,
+ *   and leaves Consent Mode alone when it's off for the website in Core GRC.
  * - Updates Consent Mode straight away with a returning visitor's saved choice
  *   (from the Core GRC script if it already ran, otherwise from the coregrc_cc
- *   cookie), so tags on this page see it without waiting for the script.
+ *   cookie, mapped with the website's settings), so tags on this page see it
+ *   without waiting for the script.
  * - Loads cookie-control.js, unless the website already has it in <head>, from
  *   the Core GRC environment the Site API key belongs to.
  *   Loaded from GTM, the banner, consent records and Consent Mode work, but
@@ -142,6 +173,8 @@ const encodeUriComponent = require('encodeUriComponent');
 const getCookieValues = require('getCookieValues');
 const decodeUriComponent = require('decodeUriComponent');
 const getTimestampMillis = require('getTimestampMillis');
+const localStorage = require('localStorage');
+const JSON = require('JSON');
 const copyFromWindow = require('copyFromWindow');
 const setInWindow = require('setInWindow');
 const createQueue = require('createQueue');
@@ -163,9 +196,20 @@ const GCM_KEYS = [
   'ad_personalization'
 ];
 
-// Core GRC's built-in categories for each Consent Mode type. Used when the
-// website's configuration has Google Consent Mode off, so the script sends
-// category choices without a Consent Mode map.
+// The tag's baseline field for each Consent Mode type (ticked = granted).
+const BASELINE_FIELD = {
+  ad_storage: 'baselineAdStorage',
+  analytics_storage: 'baselineAnalyticsStorage',
+  functionality_storage: 'baselineFunctionalityStorage',
+  personalization_storage: 'baselinePersonalizationStorage',
+  security_storage: 'baselineSecurityStorage',
+  ad_user_data: 'baselineAdUserData',
+  ad_personalization: 'baselineAdPersonalization'
+};
+const BASELINE_WAIT_MS = 500;
+
+// Core GRC's built-in categories for each Consent Mode type. Used until the
+// website's own settings are saved in this browser.
 const CATEGORY_FOR_TYPE = {
   security_storage: 'COR1',
   functionality_storage: 'COR2',
@@ -175,14 +219,6 @@ const CATEGORY_FOR_TYPE = {
   ad_user_data: 'COR5',
   ad_personalization: 'COR5'
 };
-
-// EU/EEA (with EU territories), UK and Crown Dependencies, Switzerland.
-const STRICT_REGIONS = [
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
-  'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
-  'IS', 'LI', 'NO', 'AX', 'GF', 'GP', 'MF', 'MQ', 'RE', 'YT',
-  'GB', 'JE', 'GG', 'IM', 'CH'
-];
 
 // Site API keys start with their environment's prefix; production keys (and
 // no key) use the production CDN.
@@ -197,17 +233,24 @@ const LAST_CONSENT_KEY = '__coreGrcLastConsent';
 const GCM_BOOTED_KEY = '__COREGRC_GCM_BOOTED__';
 const RAN_KEY = '__coreGrcGtmCmp';
 const CONSENT_COOKIE = 'coregrc_cc';
+const SETTINGS_KEY = 'coregrc-gcm-settings';
+const SETTINGS_VERSION = 1;
 // The script's default reconsent period. It re-checks the website's own period
 // when it loads and resets Consent Mode if the saved choice has expired.
 const MAX_COOKIE_AGE_MS = 365 * 86400000;
 
+let websiteId = '';
+// The website's saved Consent Mode settings, or null before a page saved them.
+let settings = null;
+// True when this page started on the tag's baseline, not the website's defaults.
+let usedBaseline = false;
 // True once this tag applied a saved choice that the script hasn't confirmed yet.
 let appliedFromCookie = false;
 
 main();
 
 function main() {
-  const websiteId = trim(data.websiteId);
+  websiteId = trim(data.websiteId);
   if (!websiteId) {
     log(LOGTAG, 'Missing Website ID');
     data.gtmOnFailure();
@@ -221,14 +264,18 @@ function main() {
   }
   setInWindow(RAN_KEY, true, true);
 
+  settings = readSettings();
   if (copyFromWindow(GCM_BOOTED_KEY)) {
     log(LOGTAG, 'Consent Mode already set by the Core GRC script in <head>');
+    listenForConsent();
+  } else if (settings && !settings.enabled) {
+    log(LOGTAG, 'Google Consent Mode is off for this website in Core GRC');
   } else {
     setDefaults();
     // Stops the Core GRC script setting a second set of defaults.
     setInWindow(GCM_BOOTED_KEY, true, true);
+    listenForConsent();
   }
-  listenForConsent();
 
   setUserId();
 
@@ -238,7 +285,7 @@ function main() {
     return;
   }
 
-  const url = scriptUrl(websiteId);
+  const url = scriptUrl();
   if (!queryPermission('inject_script', url)) {
     log(LOGTAG, 'Not allowed to load', url);
     data.gtmOnFailure();
@@ -247,58 +294,144 @@ function main() {
   injectScript(url, data.gtmOnSuccess, data.gtmOnFailure, url);
 }
 
-function baseState(value) {
+/** Only 'granted' or 'denied' values for known Consent Mode types. */
+function consentState(source) {
   const state = {};
+  if (!source || getType(source) !== 'object') return state;
   for (let i = 0; i < GCM_KEYS.length; i++) {
-    state[GCM_KEYS[i]] = GCM_KEYS[i] === 'security_storage' ? GRANTED : value;
+    const value = source[GCM_KEYS[i]];
+    if (value === GRANTED || value === DENIED) state[GCM_KEYS[i]] = value;
   }
   return state;
 }
 
-function waitForUpdate() {
-  const wait = makeNumber(data.waitForUpdate);
-  return wait >= 0 && wait <= 10000 ? wait : 500;
+/**
+ * The settings the Core GRC script saved for this website:
+ * { v, websiteId, enabled, waitForUpdate, adsDataRedaction, urlPassthrough,
+ *   commands: [{ region, consent, sources }] }. null when missing or invalid.
+ */
+function readSettings() {
+  const raw = localStorage.getItem(SETTINGS_KEY);
+  if (!raw) return null;
+  const saved = JSON.parse(raw);
+  if (!saved || getType(saved) !== 'object' || saved.v !== SETTINGS_VERSION || saved.websiteId !== websiteId) return null;
+  if (saved.enabled !== true) return { enabled: false };
+  if (getType(saved.commands) !== 'array') return null;
+  const commands = [];
+  for (let i = 0; i < saved.commands.length; i++) {
+    const command = saved.commands[i];
+    if (!command || getType(command) !== 'object') continue;
+    const consent = consentState(command.consent);
+    if (!Object.keys(consent).length) continue;
+    const region = [];
+    if (getType(command.region) === 'array') {
+      for (let j = 0; j < command.region.length; j++) {
+        if (getType(command.region[j]) === 'string' && command.region[j]) region.push(command.region[j]);
+      }
+    }
+    const sources = {};
+    if (command.sources && getType(command.sources) === 'object') {
+      for (let j = 0; j < GCM_KEYS.length; j++) {
+        const source = command.sources[GCM_KEYS[j]];
+        if (getType(source) === 'string' && source) sources[GCM_KEYS[j]] = source;
+      }
+    }
+    commands.push({ region: region, consent: consent, sources: sources });
+  }
+  if (!commands.length) return null;
+  const wait = makeNumber(saved.waitForUpdate);
+  return {
+    enabled: true,
+    waitForUpdate: wait >= 0 && wait <= 10000 ? wait : BASELINE_WAIT_MS,
+    adsDataRedaction: saved.adsDataRedaction === true,
+    urlPassthrough: saved.urlPassthrough === true,
+    commands: commands
+  };
+}
+
+/** The tag's baseline fields. An unset field keeps the preset: only security_storage granted. */
+function baselineState() {
+  const state = {};
+  for (let i = 0; i < GCM_KEYS.length; i++) {
+    const ticked = data[BASELINE_FIELD[GCM_KEYS[i]]];
+    const granted = ticked === undefined ? GCM_KEYS[i] === 'security_storage' : ticked === true;
+    state[GCM_KEYS[i]] = granted ? GRANTED : DENIED;
+  }
+  return state;
 }
 
 function setDefaults() {
-  const wait = waitForUpdate();
-  if (data.defaultMode === 'strictRegions') {
-    const strict = baseState(DENIED);
-    strict.region = STRICT_REGIONS;
-    strict.wait_for_update = wait;
-    setDefaultConsentState(strict);
-    const elsewhere = baseState(GRANTED);
-    elsewhere.wait_for_update = wait;
-    setDefaultConsentState(elsewhere);
-  } else {
-    const denied = baseState(DENIED);
-    denied.wait_for_update = wait;
-    setDefaultConsentState(denied);
+  if (settings) {
+    for (let i = 0; i < settings.commands.length; i++) {
+      const command = settings.commands[i];
+      const state = consentState(command.consent);
+      if (command.region.length) state.region = command.region;
+      state.wait_for_update = settings.waitForUpdate;
+      setDefaultConsentState(state);
+    }
+    if (settings.adsDataRedaction) gtagSet('ads_data_redaction', true);
+    if (settings.urlPassthrough) gtagSet('url_passthrough', true);
+    log(LOGTAG, 'Default consent set from Core GRC settings');
+    return;
   }
-  log(LOGTAG, 'Default consent set', data.defaultMode || 'denied');
 
-  if (data.adsDataRedaction) gtagSet('ads_data_redaction', true);
-  if (data.urlPassthrough) gtagSet('url_passthrough', true);
+  usedBaseline = true;
+  const state = baselineState();
+  state.wait_for_update = BASELINE_WAIT_MS;
+  setDefaultConsentState(state);
+  // Ad click identifiers stay out of requests while ad_storage is denied.
+  gtagSet('ads_data_redaction', true);
+  log(LOGTAG, 'Default consent set from the baseline (Core GRC settings not saved in this browser yet)', state);
 }
 
 function listenForConsent() {
   const addListener = createQueue(LISTENERS_KEY);
   addListener(function (payload) {
-    applyConsent(payload);
+    // The script saves the website's settings before it reports consent.
+    if (!settings) settings = readSettings();
+    // Consent Mode turned off in Core GRC: leave it alone, unless this page
+    // already started on the baseline.
+    if (settings && !settings.enabled && !usedBaseline) return;
+    applyConsent(payload, sourcesFor(''));
   });
   // The script reports consent before GTM when it's in <head>. Its report uses
   // the website's own Consent Mode mapping, so it wins over the cookie.
   const last = copyFromWindow(LAST_CONSENT_KEY);
   if (last) {
-    applyConsent(last);
+    applyConsent(last, sourcesFor(''));
   } else {
     applySavedChoice();
   }
 }
 
 /**
+ * What decides each consent type in this region ('granted', 'denied' or a
+ * category ID), from the website's settings; null for the built-in categories.
+ * Picks the visitor's subdivision, then country, then the default command.
+ */
+function sourcesFor(geo) {
+  if (!settings || !settings.enabled) return null;
+  const code = (geo || '').toUpperCase();
+  const country = code.substring(0, 2);
+  let unscoped = null;
+  let countryMatch = null;
+  let regionMatch = null;
+  for (let i = 0; i < settings.commands.length; i++) {
+    const command = settings.commands[i];
+    if (!command.region.length) {
+      unscoped = command;
+      continue;
+    }
+    if (code.length > 2 && command.region.indexOf(code) > -1) regionMatch = command;
+    if (country.length === 2 && !countryMatch && command.region.indexOf(country) > -1) countryMatch = command;
+  }
+  const picked = regionMatch || countryMatch || unscoped || settings.commands[0];
+  return Object.keys(picked.sources).length ? picked.sources : null;
+}
+
+/**
  * The visitor's saved choice from the coregrc_cc cookie
- * (v=1&s=<status>&g=COR1:1,COR3:0,...&ts=<ms>), mapped with the built-in categories.
+ * (v=1&s=<status>&g=COR1:1,COR3:0,...&geo=<region>&ts=<ms>).
  */
 function applySavedChoice() {
   const values = getCookieValues(CONSENT_COOKIE);
@@ -319,38 +452,40 @@ function applySavedChoice() {
     const pair = groups[i].split(':');
     if (pair[0]) categories[pair[0]] = pair[1] === '1' ? GRANTED : DENIED;
   }
-  if (applyConsent({ consentStatus: fields.s, categories: categories })) {
+  if (applyConsent({ consentStatus: fields.s, categories: categories }, sourcesFor(fields.geo))) {
     appliedFromCookie = true;
     log(LOGTAG, 'Saved choice applied from cookie');
   }
 }
 
-/** Consent Mode update from a Core GRC consent payload ({ consentStatus, gcm, categories }). */
-function applyConsent(payload) {
+/** Consent Mode update from category choices, with the website's sources or the built-in categories. */
+function mapCategories(categories, sources) {
+  const update = {};
+  if (!categories || getType(categories) !== 'object') return update;
+  for (let i = 0; i < GCM_KEYS.length; i++) {
+    const source = sources ? sources[GCM_KEYS[i]] : CATEGORY_FOR_TYPE[GCM_KEYS[i]];
+    const value = source === GRANTED || source === DENIED ? source : categories[source];
+    if (value === GRANTED || value === DENIED) update[GCM_KEYS[i]] = value;
+  }
+  return update;
+}
+
+/** Consent Mode update from a Core GRC consent payload ({ consentStatus, source, gcm, categories }). */
+function applyConsent(payload, sources) {
   if (!payload || getType(payload) !== 'object') return false;
   const status = payload.consentStatus || payload.status;
   if (!status) return false;
-  // "default" means the visitor hasn't chosen yet: keep the defaults, unless this
-  // tag applied a saved choice the script has since found expired.
-  if (status === 'default' && !appliedFromCookie) return false;
+  if (status === 'default') {
+    // The visitor hasn't chosen yet: keep the defaults, unless this page
+    // started on the baseline (switch to the region's defaults from Core GRC),
+    // or this tag applied a saved choice the script has since found expired.
+    const regionDefaults = usedBaseline && payload.source === 'region_default';
+    if (!regionDefaults && !appliedFromCookie) return false;
+  }
   appliedFromCookie = false;
 
-  const update = {};
-  const gcm = payload.gcm;
-  if (gcm && getType(gcm) === 'object') {
-    for (let i = 0; i < GCM_KEYS.length; i++) {
-      const value = gcm[GCM_KEYS[i]];
-      if (value === GRANTED || value === DENIED) update[GCM_KEYS[i]] = value;
-    }
-  }
-  if (!Object.keys(update).length) {
-    const categories = payload.categories;
-    if (!categories || getType(categories) !== 'object') return false;
-    for (let i = 0; i < GCM_KEYS.length; i++) {
-      const value = categories[CATEGORY_FOR_TYPE[GCM_KEYS[i]]];
-      if (value === GRANTED || value === DENIED) update[GCM_KEYS[i]] = value;
-    }
-  }
+  let update = consentState(payload.gcm);
+  if (!Object.keys(update).length) update = mapCategories(payload.categories, sources);
   if (!Object.keys(update).length) return false;
   log(LOGTAG, 'Consent update', status, update);
   updateConsentState(update);
@@ -382,10 +517,9 @@ function cdnHost(apiKey) {
   return PRODUCTION_CDN;
 }
 
-function scriptUrl(websiteId) {
+function scriptUrl() {
   const apiKey = trim(data.apiKey);
-  const host = cdnHost(apiKey);
-  let url = 'https://' + host + '/consent/' + encodeUriComponent(websiteId) +
+  let url = 'https://' + cdnHost(apiKey) + '/consent/' + encodeUriComponent(websiteId) +
     '/cookie-control.js?websiteId=' + encodeUriComponent(websiteId);
   if (apiKey) url = url + '&apiKey=' + encodeUriComponent(apiKey);
   return url;
@@ -704,6 +838,59 @@ ___WEB_PERMISSIONS___
   {
     "instance": {
       "key": {
+        "publicId": "access_local_storage",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "keys",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "coregrc-gcm-settings"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
         "publicId": "write_data_layer",
         "versionId": "1"
       },
@@ -745,15 +932,15 @@ ___WEB_PERMISSIONS___
             "listItem": [
               {
                 "type": 1,
-                "string": "https://cdn.core-grc.com/consent/"
+                "string": "https://cdn.core-grc.com/"
               },
               {
                 "type": 1,
-                "string": "https://staging-cdn.core-grc.com/consent/"
+                "string": "https://staging-cdn.core-grc.com/"
               },
               {
                 "type": 1,
-                "string": "https://next-cdn.core-grc.com/consent/"
+                "string": "https://next-cdn.core-grc.com/"
               }
             ]
           }
@@ -1066,15 +1253,39 @@ ___WEB_PERMISSIONS___
 ___TESTS___
 
 scenarios:
-- name: Sets denied defaults and loads the script
+- name: Sets the baseline defaults and loads the script
   code: |-
     mock('copyFromWindow', () => undefined);
-    runCode({ websiteId: 'site1', apiKey: 'ck_live_0123456789abcdef', defaultMode: 'denied', waitForUpdate: 500 });
-    assertApi('setDefaultConsentState').wasCalled();
+    mock('localStorage', { getItem: () => null });
+    runCode({ websiteId: 'site1', apiKey: 'ck_live_0123456789abcdef', baselineSecurityStorage: true });
+    assertApi('setDefaultConsentState').wasCalledWith({
+      ad_storage: 'denied', analytics_storage: 'denied', functionality_storage: 'denied',
+      personalization_storage: 'denied', security_storage: 'granted', ad_user_data: 'denied',
+      ad_personalization: 'denied', wait_for_update: 500
+    });
     assertApi('injectScript').wasCalled();
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Is allowed to load the script from the Core GRC CDN
+  code: |-
+    assertThat(queryPermission('inject_script', 'https://cdn.core-grc.com/consent/site1/cookie-control.js?websiteId=site1&apiKey=ck_live_0123456789abcdef')).isTrue();
+    assertThat(queryPermission('inject_script', 'https://staging-cdn.core-grc.com/consent/site1/cookie-control.js?websiteId=site1')).isTrue();
+    assertThat(queryPermission('inject_script', 'https://example.com/consent/site1/cookie-control.js')).isFalse();
+- name: Sets defaults from the website's Core GRC settings
+  code: |-
+    mock('copyFromWindow', () => undefined);
+    mock('localStorage', { getItem: () => JSON.stringify({ v: 1, websiteId: 'site1', enabled: true, waitForUpdate: 800,
+      adsDataRedaction: false, urlPassthrough: true, commands: [
+        { region: null, consent: { analytics_storage: 'granted', security_storage: 'granted' }, sources: {} },
+        { region: ['DE', 'FR'], consent: { analytics_storage: 'denied', security_storage: 'granted' }, sources: {} }
+      ] }) });
+    runCode({ websiteId: 'site1' });
+    assertApi('setDefaultConsentState').wasCalledWith({ analytics_storage: 'granted', security_storage: 'granted', wait_for_update: 800 });
+    assertApi('setDefaultConsentState').wasCalledWith({ analytics_storage: 'denied', security_storage: 'granted', region: ['DE', 'FR'], wait_for_update: 800 });
+    assertApi('gtagSet').wasCalledWith('url_passthrough', true);
 - name: Loads the script from the environment the key belongs to
   code: |-
     mock('copyFromWindow', () => undefined);
+    mock('localStorage', { getItem: () => null });
     let loaded = '';
     mock('injectScript', (url, onSuccess) => { loaded = url; onSuccess(); });
     runCode({ websiteId: 'site1', apiKey: 'ck_stg_0123456789abcdef' });
@@ -1082,6 +1293,7 @@ scenarios:
 - name: Applies a returning visitor's saved choice
   code: |-
     mock('copyFromWindow', () => undefined);
+    mock('localStorage', { getItem: () => null });
     mock('getTimestampMillis', () => 1700000000000);
     mock('getCookieValues', () => ['v=1&s=accepted&g=COR1%3A1%2CCOR3%3A1%2CCOR5%3A0&ts=1699999999000']);
     runCode({ websiteId: 'site1' });
@@ -1090,6 +1302,7 @@ scenarios:
 - name: Leaves defaults to the Core GRC script in head
   code: |-
     mock('copyFromWindow', (key) => key === '__COREGRC_GCM_BOOTED__' || key === '__COREGRC_COOKIE_CONTROL_INLINE__');
+    mock('localStorage', { getItem: () => null });
     mock('getCookieValues', () => []);
     runCode({ websiteId: 'site1' });
     assertApi('setDefaultConsentState').wasNotCalled();
@@ -1099,6 +1312,9 @@ scenarios:
   code: |-
     runCode({ websiteId: '' });
     assertApi('gtmOnFailure').wasCalled();
+setup: |-
+  const JSON = require('JSON');
+  const queryPermission = require('queryPermission');
 
 
 ___NOTES___
