@@ -130,6 +130,22 @@ ___TEMPLATE_PARAMETERS___
   },
   {
     "type": "GROUP",
+    "name": "cloudflare",
+    "displayName": "Cloudflare",
+    "groupStyle": "ZIPPY_CLOSED",
+    "subParams": [
+      {
+        "type": "CHECKBOX",
+        "name": "warnRocketLoader",
+        "checkboxText": "Warn about Cloudflare Rocket Loader",
+        "simpleValueType": true,
+        "defaultValue": true,
+        "help": "Shows a warning in Preview when Rocket Loader is delaying Tag Manager. Fix it by adding data-cfasync=\"false\" to your Tag Manager snippet."
+      }
+    ]
+  },
+  {
+    "type": "GROUP",
     "name": "records",
     "displayName": "Consent records",
     "groupStyle": "ZIPPY_CLOSED",
@@ -250,6 +266,9 @@ const GCM_BOOTED_KEY = '__COREGRC_GCM_BOOTED__';
 const RAN_KEY = '__coreGrcGtmCmp';
 const CONSENT_COOKIE = 'coregrc_cc';
 const SETTINGS_KEY = 'coregrc-gcm-settings';
+// Cloudflare Rocket Loader defines the first before it runs the scripts it
+// delayed, and sets the second when it has run them all.
+const ROCKET_LOADER_KEYS = ['__rocketLoaderLoadProgressSimulator', '__cfRLUnblockHandlers'];
 const SETTINGS_VERSION = 1;
 // The script's default reconsent period. It re-checks the website's own period
 // when it loads and resets Consent Mode if the saved choice has expired.
@@ -281,6 +300,7 @@ function main() {
     return;
   }
   setInWindow(RAN_KEY, true, true);
+  warnIfRocketLoader();
 
   settings = readSettings();
   if (copyFromWindow(GCM_BOOTED_KEY)) {
@@ -310,6 +330,21 @@ function main() {
     return;
   }
   injectScript(url, data.gtmOnSuccess, data.gtmOnFailure, url);
+}
+
+/**
+ * Rocket Loader delayed the Tag Manager snippet, so scripts outside Tag Manager
+ * can run before consent is set. Shown in Preview (logging is debug only).
+ */
+function warnIfRocketLoader() {
+  if (data.warnRocketLoader === false) return;
+  for (let i = 0; i < ROCKET_LOADER_KEYS.length; i++) {
+    if (copyFromWindow(ROCKET_LOADER_KEYS[i])) {
+      log(LOGTAG, 'Warning: Cloudflare Rocket Loader is delaying Google Tag Manager. Add data-cfasync="false" to your ' +
+        'Google Tag Manager <script> snippet so consent is set before other scripts run.');
+      return;
+    }
+  }
 }
 
 /** Only 'granted' or 'denied' values for known Consent Mode types. */
@@ -1261,6 +1296,84 @@ ___WEB_PERMISSIONS___
                     "boolean": false
                   }
                 ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "__rocketLoaderLoadProgressSimulator"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "__cfRLUnblockHandlers"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  }
+                ]
               }
             ]
           }
@@ -1332,6 +1445,15 @@ scenarios:
     runCode({ websiteId: 'site1' });
     assertApi('setDefaultConsentState').wasNotCalled();
     assertApi('injectScript').wasNotCalled();
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Warns in Preview when Cloudflare Rocket Loader delays Tag Manager
+  code: |-
+    mock('copyFromWindow', (key) => key === '__cfRLUnblockHandlers');
+    mock('localStorage', { getItem: () => null });
+    let warned = false;
+    mock('logToConsole', function () { if ((arguments[1] + '').indexOf('Rocket Loader') > -1) warned = true; });
+    runCode({ websiteId: 'site1', warnRocketLoader: true });
+    assertThat(warned).isTrue();
     assertApi('gtmOnSuccess').wasCalled();
 - name: Fails without a Website ID
   code: |-

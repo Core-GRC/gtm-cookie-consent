@@ -29,7 +29,7 @@ Setup guide: https://core-grc.com/docs/google-tag-manager
 | Injects scripts | Loads the Core GRC banner from the Core GRC CDN. |
 | Reads cookie values (`coregrc_cc` only) | Reads the visitor's saved choice. |
 | Reads local storage (`coregrc-gcm-settings` only) | Reads your website's Consent Mode settings, saved by the Core GRC script. No visitor data. |
-| Accesses global variables | Shares consent with the Core GRC banner script. |
+| Accesses global variables | Shares consent with the Core GRC banner script, and checks whether Cloudflare Rocket Loader is delaying Tag Manager. |
 | Writes to the data layer (`ads_data_redaction`, `url_passthrough`) | Applies those two options when you tick them. |
 | Logs to console | Logs in Tag Manager Preview only. |
 
